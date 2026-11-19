@@ -75,7 +75,7 @@
         <div class="zoom-row"><label for="zoom">Adjust photo size (Zoom In / Out)</label><span id="zoomValue">100%</span></div>
         <div class="zoom-controls">
           <button type="button" class="zoom-btn" id="zoomOut" aria-label="Zoom out" title="Zoom Out" disabled>−</button>
-          <input type="range" id="zoom" min="1" max="3.5" step="0.01" value="1" aria-label="Photo size" disabled>
+          <input type="range" id="zoom" min="0.25" max="3.5" step="0.01" value="1" aria-label="Photo size" disabled>
           <button type="button" class="zoom-btn" id="zoomIn" aria-label="Zoom in" title="Zoom In" disabled>+</button>
         </div>
       </div>
@@ -114,9 +114,9 @@
   let imageURL = null;
   let baseScale = 1;
   let zoomFactor = 1;
-  // True centre of the transparent opening in frame.png.png.
-   // The frame PNG itself provides the exact photo mask, including soft gold edges.
-   const hole = { x: 525, y: 405, r: 330 };
+  // Centre of the transparent opening in frame.png.png.
+  // The PNG alpha channel supplies the exact decorative mask.
+  const hole = { x: 525, y: 405, r: 330 };
   let px = hole.x;
   let py = hole.y;
   let dragging = false;
@@ -142,10 +142,10 @@
     if (!photo) return;
     const hw = photo.naturalWidth * baseScale * zoomFactor / 2;
     const hh = photo.naturalHeight * baseScale * zoomFactor / 2;
-    // Always keep every pixel of the actual transparent window covered by the photo.
-    // Base zoom is cover-fit; zooming out below 100% is disabled to prevent white gaps.
-    const rangeX = Math.max(0, hw - hole.r);
-    const rangeY = Math.max(0, hh - hole.r);
+    // Allow movement in both directions, including when zoomed out below 100%.
+    // Any free space is covered by a softly blurred copy of the same photo.
+    const rangeX = Math.abs(hw - hole.r);
+    const rangeY = Math.abs(hh - hole.r);
     px = Math.max(hole.x - rangeX, Math.min(hole.x + rangeX, px));
     py = Math.max(hole.y - rangeY, Math.min(hole.y + rangeY, py));
   }
@@ -160,6 +160,14 @@
     // reveals the photo. This avoids the white crescent above the forehead.
     if (photo) {
       constrain();
+      // Fill the transparent opening with a blurred background when zooming out.
+      // This prevents the white canvas from appearing around the smaller photo.
+      const backdropW = photo.naturalWidth * baseScale * 1.12;
+      const backdropH = photo.naturalHeight * baseScale * 1.12;
+      ctx.save();
+      ctx.filter = 'blur(26px) brightness(0.86)';
+      ctx.drawImage(photo, hole.x - backdropW/2, hole.y - backdropH/2, backdropW, backdropH);
+      ctx.restore();
       const w = photo.naturalWidth * baseScale * zoomFactor;
       const h = photo.naturalHeight * baseScale * zoomFactor;
       ctx.drawImage(photo, px - w/2, py - h/2, w, h);
