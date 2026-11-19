@@ -143,7 +143,7 @@
     const hw = photo.naturalWidth * baseScale * zoomFactor / 2;
     const hh = photo.naturalHeight * baseScale * zoomFactor / 2;
     // Allow movement in both directions, including when zoomed out below 100%.
-    // Any free space is covered by a softly blurred copy of the same photo.
+    // Any free space remains white; no blurry background is added.
     const rangeX = Math.abs(hw - hole.r);
     const rangeY = Math.abs(hh - hole.r);
     px = Math.max(hole.x - rangeX, Math.min(hole.x + rangeX, px));
@@ -160,28 +160,11 @@
     // reveals the photo. This avoids the white crescent above the forehead.
     if (photo) {
       constrain();
-      // Fill the transparent opening with a blurred background when zooming out.
-      // This prevents the white canvas from appearing around the smaller photo.
-      const backdropW = photo.naturalWidth * baseScale * 1.12;
-      const backdropH = photo.naturalHeight * baseScale * 1.12;
-      ctx.save();
-      ctx.filter = 'blur(26px) brightness(0.86)';
-      ctx.drawImage(photo, hole.x - backdropW/2, hole.y - backdropH/2, backdropW, backdropH);
-      ctx.restore();
+      // No blur or image backdrop: if the photo is smaller than the opening,
+      // the uncovered area remains plain white.
       const w = photo.naturalWidth * baseScale * zoomFactor;
       const h = photo.naturalHeight * baseScale * zoomFactor;
       ctx.drawImage(photo, px - w/2, py - h/2, w, h);
-    } else {
-      ctx.fillStyle = '#f3f6f5';
-      ctx.beginPath();
-      ctx.arc(hole.x, hole.y, hole.r, 0, Math.PI*2);
-      ctx.fill();
-      ctx.fillStyle = '#7a8b81';
-      ctx.font = 'bold 28px Arial, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Upload your photo', hole.x, hole.y-12);
-      ctx.font = '22px Arial, sans-serif';
-      ctx.fillText('to celebrate with us', hole.x, hole.y+25);
     }
     if (frameReady) ctx.drawImage(frame, 0, 0, 1080, 1080);
   }
