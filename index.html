@@ -75,7 +75,7 @@
         <div class="zoom-row"><label for="zoom">Adjust photo size (Zoom In / Out)</label><span id="zoomValue">100%</span></div>
         <div class="zoom-controls">
           <button type="button" class="zoom-btn" id="zoomOut" aria-label="Zoom out" title="Zoom Out" disabled>−</button>
-          <input type="range" id="zoom" min="0.25" max="3.5" step="0.01" value="1" aria-label="Photo size" disabled>
+          <input type="range" id="zoom" min="1" max="3.5" step="0.01" value="1" aria-label="Photo size" disabled>
           <button type="button" class="zoom-btn" id="zoomIn" aria-label="Zoom in" title="Zoom In" disabled>+</button>
         </div>
       </div>
@@ -114,8 +114,9 @@
   let imageURL = null;
   let baseScale = 1;
   let zoomFactor = 1;
-  // Match the gold photo opening: move the crop upward and enlarge it to avoid white crescents.
-  const hole = { x: 542, y: 510, r: 350 };
+  // True centre of the transparent opening in frame.png.png.
+   // The frame PNG itself provides the exact photo mask, including soft gold edges.
+   const hole = { x: 525, y: 405, r: 330 };
   let px = hole.x;
   let py = hole.y;
   let dragging = false;
@@ -128,7 +129,7 @@
 
   function fit() {
     if (!photo) return;
-    baseScale = Math.max((hole.r*2+4)/photo.naturalWidth, (hole.r*2+4)/photo.naturalHeight);
+    baseScale = Math.max((hole.r*2+8)/photo.naturalWidth, (hole.r*2+8)/photo.naturalHeight);
     zoomFactor = 1;
     zoom.value = '1';
     zoomValue.textContent = '100%';
@@ -141,10 +142,10 @@
     if (!photo) return;
     const hw = photo.naturalWidth * baseScale * zoomFactor / 2;
     const hh = photo.naturalHeight * baseScale * zoomFactor / 2;
-    // When zooming out below 100%, keep a small image movable but inside the circle.
-    // When zoomed in, constrain panning so the circle remains filled.
-    const rangeX = Math.abs(hw - hole.r);
-    const rangeY = Math.abs(hh - hole.r);
+    // Always keep every pixel of the actual transparent window covered by the photo.
+    // Base zoom is cover-fit; zooming out below 100% is disabled to prevent white gaps.
+    const rangeX = Math.max(0, hw - hole.r);
+    const rangeY = Math.max(0, hh - hole.r);
     px = Math.max(hole.x - rangeX, Math.min(hole.x + rangeX, px));
     py = Math.max(hole.y - rangeY, Math.min(hole.y + rangeY, py));
   }
@@ -153,11 +154,10 @@
     ctx.clearRect(0,0,1080,1080);
     ctx.fillStyle = '#fff';
     ctx.fillRect(0,0,1080,1080);
-    // Photo stays behind the transparent centre of the decorative frame.
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(hole.x, hole.y, hole.r, 0, Math.PI*2);
-    ctx.clip();
+    // IMPORTANT: Do NOT clip the photo with a second canvas circle.
+    // The decorative frame PNG already has an accurately shaped transparent opening.
+    // Draw the photo first, then layer the original PNG on top; only the PNG opening
+    // reveals the photo. This avoids the white crescent above the forehead.
     if (photo) {
       constrain();
       const w = photo.naturalWidth * baseScale * zoomFactor;
@@ -165,7 +165,9 @@
       ctx.drawImage(photo, px - w/2, py - h/2, w, h);
     } else {
       ctx.fillStyle = '#f3f6f5';
-      ctx.fillRect(hole.x-hole.r, hole.y-hole.r, hole.r*2, hole.r*2);
+      ctx.beginPath();
+      ctx.arc(hole.x, hole.y, hole.r, 0, Math.PI*2);
+      ctx.fill();
       ctx.fillStyle = '#7a8b81';
       ctx.font = 'bold 28px Arial, sans-serif';
       ctx.textAlign = 'center';
@@ -173,8 +175,7 @@
       ctx.font = '22px Arial, sans-serif';
       ctx.fillText('to celebrate with us', hole.x, hole.y+25);
     }
-    ctx.restore();
-    if (frameReady) ctx.drawImage(frame, 0,0,1080,1080);
+    if (frameReady) ctx.drawImage(frame, 0, 0, 1080, 1080);
   }
 
   function point(ev) {
